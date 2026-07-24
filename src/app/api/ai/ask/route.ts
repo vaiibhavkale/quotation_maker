@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Ask HIQM — natural-language analytics.
+ * Ask HIQM - natural-language analytics.
  * Architecture: we run the deterministic SQL rollups first, then let the model
  * NARRATE the numbers. The model never invents figures and never writes SQL.
  */
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         role: "system",
         content:
           "You are HIQM's analytics assistant for HESEOS leadership and partners. " +
-          "Answer ONLY from the JSON data provided — never invent numbers. " +
+          "Answer ONLY from the JSON data provided - never invent numbers. " +
           "Be concise and executive: 3-6 sentences, concrete figures, one actionable insight at the end. " +
           "Money is in paise; convert to ₹ Lakh/Crore Indian format. If the data cannot answer the question, say what data is missing.",
       },

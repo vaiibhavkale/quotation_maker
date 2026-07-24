@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 
-export const metadata = { title: "Sign in — HIQM" };
+export const metadata = { title: "Sign in - HIQM" };
 
 export default async function LoginPage(props: {
   searchParams: Promise<{ error?: string }>;
@@ -54,9 +54,9 @@ export default async function LoginPage(props: {
           <button className="btn-primary w-full">Sign in</button>
           <div className="rounded-lg bg-ink-50 p-3 text-xs leading-5 text-ink-500">
             <p className="mb-1 font-semibold text-ink-700">Demo logins (pwd: demo1234)</p>
-            <p>CEO — ceo@heseos.in</p>
-            <p>Dealer — admin@acme.in</p>
-            <p>SI — admin@voltedge.in</p>
+            <p>CEO - ceo@heseos.in</p>
+            <p>Dealer - admin@acme.in</p>
+            <p>SI - admin@voltedge.in</p>
           </div>
         </form>
 

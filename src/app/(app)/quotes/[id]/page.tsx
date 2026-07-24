@@ -130,7 +130,7 @@ export default async function QuoteDetail(props: { params: Promise<{ id: string 
 
       {q.needs_approval && !q.approved_by_id && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <span className="font-bold">Deal-desk hold —</span> this quote&apos;s discount or value exceeds the
+          <span className="font-bold">Deal-desk hold -</span> this quote&apos;s discount or value exceeds the
           self-serve limit. {canApproveDeals(user.role)
             ? "Clear it from the Share & progress panel."
             : "A partner admin (or above) needs to clear it before it can be marked Approved."}
@@ -156,7 +156,7 @@ export default async function QuoteDetail(props: { params: Promise<{ id: string 
                   <tr key={it.id}>
                     <td className="text-ink-400">{i + 1}</td>
                     <td className="max-w-[260px]">{it.description}</td>
-                    <td className="text-ink-500">{it.hsn_code ?? "—"}</td>
+                    <td className="text-ink-500">{it.hsn_code ?? "-"}</td>
                     <td className="text-right tabular-nums">{(Number(it.quantity) / 100).toLocaleString("en-IN")} {it.unit}</td>
                     <td className="text-right tabular-nums">{fmtINR(Number(it.rate))}</td>
                     <td className="text-right tabular-nums">{pct(Number(it.discount_pct))}</td>
@@ -187,12 +187,12 @@ export default async function QuoteDetail(props: { params: Promise<{ id: string 
 
           {diff && (
             <div className="card p-5">
-              <h3 className="mb-2 text-sm font-bold">Revision diff — R{revisions[1].revision_no} → R{revisions[0].revision_no}</h3>
+              <h3 className="mb-2 text-sm font-bold">Revision diff - R{revisions[1].revision_no} → R{revisions[0].revision_no}</h3>
               <div className="space-y-1 text-sm">
                 {diff.added.map((d) => <p key={d} className="text-emerald-700">+ {d}</p>)}
                 {diff.removed.map((d) => <p key={d} className="text-rose-600">− {d}</p>)}
                 {diff.added.length === 0 && diff.removed.length === 0 && (
-                  <p className="text-ink-500">Same items — quantities/pricing changed.</p>
+                  <p className="text-ink-500">Same items - quantities/pricing changed.</p>
                 )}
                 <p className={`pt-1 font-semibold ${diff.totalDelta >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
                   Total {diff.totalDelta >= 0 ? "increased" : "decreased"} by {fmtINR(Math.abs(diff.totalDelta))}

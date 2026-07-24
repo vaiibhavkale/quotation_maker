@@ -27,7 +27,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ token: string
 
   if (!result.ok) return NextResponse.json({ error: "Quote is not open for acceptance" }, { status: 409 });
 
-  // audit_logs has no RLS (not tenant-row-scoped by design) — fine outside the tx.
+  // audit_logs has no RLS (not tenant-row-scoped by design) - fine outside the tx.
   await sql`insert into audit_logs (tenant_id, entity, entity_id, action, detail)
     values (${share.tenant_id}, 'quotation', ${share.quotation_id}, 'accepted_online', ${JSON.stringify({ token })})`;
 

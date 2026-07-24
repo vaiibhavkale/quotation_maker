@@ -44,7 +44,7 @@ export default async function LeadDetail(props: { params: Promise<{ id: string }
             </span>
           </div>
           <p className="mt-1 text-sm text-ink-500">
-            {lead.phone ?? "—"} · {lead.email ?? "—"} · {lead.assigned_name ?? "Unassigned"} · source: {String(lead.source).replace("_", " ")}
+            {lead.phone ?? "-"} · {lead.email ?? "-"} · {lead.assigned_name ?? "Unassigned"} · source: {String(lead.source).replace("_", " ")}
           </p>
           {lead.notes && <p className="mt-2 max-w-xl text-sm text-ink-700">{lead.notes}</p>}
           {lead.status === "dropped" && lead.drop_reason && (
@@ -98,7 +98,7 @@ export default async function LeadDetail(props: { params: Promise<{ id: string }
             <h3 className="text-sm font-bold">Convert to project</h3>
             <p className="text-xs text-ink-500">Creates a customer (if needed) + project, then drops you straight into the quote builder.</p>
             <div><label className="label">Project name</label>
-              <input name="projectName" required className="input" placeholder="Rooftop Solar — 5kW" /></div>
+              <input name="projectName" required className="input" placeholder="Rooftop Solar - 5kW" /></div>
             <div><label className="label">Site address</label>
               <textarea name="address" className="input h-16" /></div>
             <div><label className="label">State (place of supply)</label>

@@ -125,7 +125,7 @@ export async function transitionQuote(quoteId: string, to: QuoteStatus, reason?:
 
     if (to === "approved" && q.needs_approval && !q.approved_by_id && !canApproveDeals(user.role)) {
       throw new Error(
-        "DEAL_DESK_APPROVAL_REQUIRED: this quote's discount/value exceeds the self-serve limit — only a partner admin or above can clear it"
+        "DEAL_DESK_APPROVAL_REQUIRED: this quote's discount/value exceeds the self-serve limit - only a partner admin or above can clear it"
       );
     }
 

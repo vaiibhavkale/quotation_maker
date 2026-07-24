@@ -3,7 +3,7 @@ import type { SessionUser } from "@/lib/auth";
 
 /**
  * Leadership + partner analytics. Every query here touches `quotations`,
- * which is RLS-protected with zero exceptions — so every function runs
+ * which is RLS-protected with zero exceptions - so every function runs
  * inside `withTenant` using the viewer's own tenantId/scope. For 'global'
  * scope (CEO, zone/state managers) the RLS policy grants full visibility;
  * the geo/tenant filters below then narrow that down to whatever the
@@ -44,8 +44,8 @@ export async function overview(user: SessionUser, drill: GeoFilter = {}) {
 
 /**
  * One drilldown query, grouped by the next level down. Once a specific
- * tenant is in scope — either because the viewer IS tenant-scoped, or a
- * leadership viewer has drilled all the way to a single org — the next
+ * tenant is in scope - either because the viewer IS tenant-scoped, or a
+ * leadership viewer has drilled all the way to a single org - the next
  * level down is the sales rep, not geography: India → Zone → State →
  * City → Organization → Employee.
  */
@@ -90,7 +90,7 @@ export async function drilldown(user: SessionUser, drill: GeoFilter = {}) {
   });
 }
 
-/** Cross-tenant rep leaderboard for leadership — no drilling required. */
+/** Cross-tenant rep leaderboard for leadership - no drilling required. */
 export async function topPerformers(user: SessionUser, limit = 10) {
   if (user.scope !== "global") return [];
   return withTenant({ tenantId: user.tenantId, scope: user.scope }, async ({ raw: sql }) => {

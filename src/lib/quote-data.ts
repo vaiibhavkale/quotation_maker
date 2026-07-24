@@ -3,7 +3,7 @@ import type { QuotePdfData } from "@/pdf/quote-pdf";
 
 /**
  * Loads everything the PDF/Excel/public page needs, in one place.
- * `ctx` is the RLS session context to run under — quotations/customers/
+ * `ctx` is the RLS session context to run under - quotations/customers/
  * quote_items are strictly tenant-isolated, so callers must supply the
  * requester's own tenantId/scope (authenticated routes) or the tenant
  * resolved from a validated share token (the public quote page).

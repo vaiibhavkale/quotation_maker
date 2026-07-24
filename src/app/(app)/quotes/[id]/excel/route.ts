@@ -18,7 +18,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const color = (b.brand.primaryColor || "#E8821E").replace("#", "FF");
 
   ws.mergeCells("A1:H1");
-  ws.getCell("A1").value = `${b.brand.displayName} — ${b.quote.number}`;
+  ws.getCell("A1").value = `${b.brand.displayName} - ${b.quote.number}`;
   ws.getCell("A1").font = { bold: true, size: 14 };
   ws.mergeCells("A2:H2");
   ws.getCell("A2").value = `${b.quote.title} · For: ${b.customer.name} · ${b.quote.date}`;

@@ -13,7 +13,7 @@ export const geoStates = pgTable("geo_states", {
   id: text("id").primaryKey(), // e.g. MH
   name: text("name").notNull(),
   zoneId: text("zone_id").notNull().references(() => geoZones.id),
-  gstStateCode: text("gst_state_code").notNull(), // "27" for MH — drives CGST/SGST vs IGST
+  gstStateCode: text("gst_state_code").notNull(), // "27" for MH - drives CGST/SGST vs IGST
 });
 
 export const geoCities = pgTable("geo_cities", {

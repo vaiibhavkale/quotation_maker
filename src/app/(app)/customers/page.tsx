@@ -30,10 +30,10 @@ export default async function CustomersPage() {
                 {customers.map((c) => (
                   <tr key={c.id}>
                     <td className="font-semibold">{c.name}</td>
-                    <td>{c.contact_name ?? "—"}</td>
-                    <td className="tabular-nums">{c.phone ?? "—"}</td>
-                    <td className="text-xs text-ink-500">{c.gstin ?? "—"}</td>
-                    <td>{c.state_name ?? "—"}</td>
+                    <td>{c.contact_name ?? "-"}</td>
+                    <td className="tabular-nums">{c.phone ?? "-"}</td>
+                    <td className="text-xs text-ink-500">{c.gstin ?? "-"}</td>
+                    <td>{c.state_name ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>

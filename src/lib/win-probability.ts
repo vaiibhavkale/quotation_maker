@@ -1,10 +1,10 @@
 /**
- * Win Probability v0 — transparent, stage-weighted rules (industry-standard
+ * Win Probability v0 - transparent, stage-weighted rules (industry-standard
  * CRM forecasting approach: base rate per pipeline stage, adjusted by
  * engagement signals). Distinct from Quote Health: health flags whether a
  * *deal in flight* needs attention right now; win probability estimates the
  * odds this specific quote *closes*, and feeds pipeline-weighted revenue
- * forecasting on the CEO dashboard. Same philosophy as health.ts — rules
+ * forecasting on the CEO dashboard. Same philosophy as health.ts - rules
  * now, explainable, swappable for a trained model later without touching
  * any caller.
  */
@@ -27,7 +27,7 @@ export type WinProbability = {
   factors: string[];
 };
 
-/** Stage base rates — classic CRM forecasting heuristic (win-rate by stage). */
+/** Stage base rates - classic CRM forecasting heuristic (win-rate by stage). */
 const BASE_RATE: Record<string, number> = {
   draft: 10,
   shared: 25,
@@ -55,11 +55,11 @@ export function winProbability(q: WinProbabilityInput): WinProbability {
   }
 
   if (q.silentDays > 7) { p -= 15; factors.push(`No activity for ${Math.floor(q.silentDays)} days`); }
-  else if (q.silentDays > 3) { p -= 6; factors.push("Going quiet — momentum slowing"); }
+  else if (q.silentDays > 3) { p -= 6; factors.push("Going quiet - momentum slowing"); }
 
-  if (q.revisionCount > 3) { p -= Math.min(10, (q.revisionCount - 2) * 3); factors.push(`${q.revisionCount} revisions — prolonged back-and-forth`); }
+  if (q.revisionCount > 3) { p -= Math.min(10, (q.revisionCount - 2) * 3); factors.push(`${q.revisionCount} revisions - prolonged back-and-forth`); }
 
-  if (q.isPastValidity) { p -= 15; factors.push("Quote validity has lapsed — urgency lost"); }
+  if (q.isPastValidity) { p -= 15; factors.push("Quote validity has lapsed - urgency lost"); }
   if (q.hasCustomerGstin) { p += 5; factors.push("Registered business buyer (GSTIN on file)"); }
 
   if (q.ageDays > 30 && !["approved"].includes(q.status)) { p -= 8; factors.push(`Open for ${Math.floor(q.ageDays)} days with no close`); }

@@ -1,5 +1,5 @@
 // One-off e2e smoke test against a running `next start` on localhost:3000.
-// Not part of the app — deleted after use. Exercises: login, new-module
+// Not part of the app - deleted after use. Exercises: login, new-module
 // pages, cross-tenant RLS isolation on leads/projects/orders, and the
 // deal-desk role gate on the quote detail page.
 import postgres from "postgres";
@@ -13,7 +13,7 @@ const sql = postgres(env.DIRECT_DATABASE_URL, { max: 1, prepare: false, ssl: "re
 
 const BASE = "http://localhost:3000";
 let failures = 0;
-const ok = (cond, label) => { console.log(`${cond ? "PASS" : "FAIL"} — ${label}`); if (!cond) failures++; };
+const ok = (cond, label) => { console.log(`${cond ? "PASS" : "FAIL"} - ${label}`); if (!cond) failures++; };
 
 async function login(email, password = "demo1234") {
   const csrfRes = await fetch(`${BASE}/api/auth/csrf`);
@@ -81,7 +81,7 @@ async function main() {
     const r = await get(voltedge.jar, `/orders/${acmeOrder.id}`);
     // orders is a shared-visibility list for leadership but tenant users should
     // only see their own tenant's order the page renders the DB row regardless
-    // of caller tenant only if RLS/ownership check passes — verify it 404s.
+    // of caller tenant only if RLS/ownership check passes - verify it 404s.
     ok(r.status === 404, `voltedge admin GET acme's /orders/${acmeOrder.id} → 404 (got ${r.status})`);
   }
 
@@ -96,7 +96,7 @@ async function main() {
     const adminView = await get(admin.jar, `/quotes/${heldQuote.id}`);
     ok(adminView.text.includes("Mark approved"), `acme partner_admin (approver) DOES see "Mark approved" on ${heldQuote.number}`);
   } else {
-    console.log("SKIP — no held (needs_approval) quote found in seed data for this check");
+    console.log("SKIP - no held (needs_approval) quote found in seed data for this check");
   }
 
   // - 4. CEO dashboard: leaderboard + employee drilldown -

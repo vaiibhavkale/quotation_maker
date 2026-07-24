@@ -78,7 +78,7 @@ export default async function ProjectsPage() {
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></div>
             <div><label className="label">Project name</label>
-              <input name="name" required className="input" placeholder="Rooftop Solar — 25kW" /></div>
+              <input name="name" required className="input" placeholder="Rooftop Solar - 25kW" /></div>
             <div><label className="label">Site address</label>
               <textarea name="address" className="input h-16" /></div>
             <button className="btn-primary w-full">Create project</button>

@@ -1,5 +1,5 @@
 /**
- * Seeds a believable PAN-India demo dataset — bulk-insert version (few round
+ * Seeds a believable PAN-India demo dataset - bulk-insert version (few round
  * trips instead of thousands) so it finishes in seconds over a remote DB:
  *  - Geo: 5 zones, 8 states, 12 cities
  *  - Tenants: HESEOS HQ, 1 distributor, 2 dealers, 1 SI (each branded)
@@ -104,10 +104,10 @@ async function main() {
     heseos: [await mkUser("direct@heseos.in", "Rohit Sharma", "heseos", "partner_sales")],
   };
   // Whoever can actually clear a deal-desk hold per tenant (mirrors
-  // canApproveDeals in src/lib/deal-desk.ts) — used only to keep seeded
+  // canApproveDeals in src/lib/deal-desk.ts) - used only to keep seeded
   // approved_by_id values consistent with what the real approval gate
   // would allow. Every tenant here has a partner_admin except "heseos"
-  // itself, whose only seller is partner_sales — the CEO covers that case.
+  // itself, whose only seller is partner_sales - the CEO covers that case.
   const approverBySlug: Record<string, string> = {
     acme: sellers.acme[0], voltedge: sellers.voltedge[0], raypower: sellers.raypower[0],
     sungrid: sellers.sungrid[0], heseos: ceoId,
@@ -224,7 +224,7 @@ async function main() {
         const projectId = randomUUID();
         projectRows.push({
           id: projectId, tenant_id: tId, customer_id: convertedCustomer.id, lead_id: leadId,
-          name: `${pick(["Rooftop Solar", "Hybrid Power System", "Solar + Storage"])} — ${convertedCustomer.id.slice(0, 4)}`,
+          name: `${pick(["Rooftop Solar", "Hybrid Power System", "Solar + Storage"])} - ${convertedCustomer.id.slice(0, 4)}`,
           address: "Site address on file", status: "active", created_at: created,
         });
         (projectsByCustomer[convertedCustomer.id] ??= []).push(projectId);
@@ -292,14 +292,14 @@ async function main() {
       const number = `${slug.toUpperCase()}/QT/${fy}/${String(seq).padStart(5, "0")}`;
       const qId = randomUUID();
 
-      // Deal-desk gate — mirrors the threshold in src/lib/deal-desk.ts
+      // Deal-desk gate - mirrors the threshold in src/lib/deal-desk.ts
       // (duplicated here rather than imported: this script runs standalone
       // via tsx, outside Next's path-alias resolution).
       const discPctForGate = subtotal > 0 ? (discountTotal / subtotal) * 100 : 0;
       const needsApproval = discPctForGate > 10 || grand >= 50_00_000 * 100;
       // The app's own server action refuses to reach 'approved'/'converted'
       // with an unresolved deal-desk hold, so seed data has to respect that
-      // same invariant — only earlier-stage quotes can be left pending.
+      // same invariant - only earlier-stage quotes can be left pending.
       const approvedById = needsApproval && ["approved", "converted"].includes(status)
         ? approverBySlug[slug]
         : null;
@@ -309,7 +309,7 @@ async function main() {
 
       quotationRows.push({
         id: qId, tenant_id: tId, customer_id: cust.id, project_id: projectId, created_by_id: creator, number,
-        title: `${pick(["Rooftop Solar", "Hybrid Power System", "Solar + Storage", "Ground Mount Array"])} — ${Math.round(3 + rand(97))} kW`,
+        title: `${pick(["Rooftop Solar", "Hybrid Power System", "Solar + Storage", "Ground Mount Array"])} - ${Math.round(3 + rand(97))} kW`,
         status, current_revision: 1, place_of_supply_state_id: cust.stateId,
         subtotal, discount_total: discountTotal, cgst, sgst, igst, grand_total: grand,
         valid_until: new Date(created.getTime() + 15 * 864e5),
@@ -346,7 +346,7 @@ async function main() {
     seqByTenant[slug] = seq;
   }
 
-  // Orders — auto-created for every 'converted' quotation, exactly like the
+  // Orders - auto-created for every 'converted' quotation, exactly like the
   // app's own transitionQuote() does the moment a quote converts. Built
   // after quotationRows is final since it depends on each quote's status/number.
   const orderRows: Record<string, unknown>[] = [];

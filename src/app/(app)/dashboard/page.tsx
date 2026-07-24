@@ -80,7 +80,7 @@ export default async function Dashboard(props: {
               ))}
             </nav>
           ) : (
-            <p className="text-sm text-ink-500">{user.tenantName} — your pipeline at a glance</p>
+            <p className="text-sm text-ink-500">{user.tenantName} - your pipeline at a glance</p>
           )}
         </div>
         {!isLeadership && <Link href="/quotes/new" className="btn-primary">+ New Quotation</Link>}
@@ -100,7 +100,7 @@ export default async function Dashboard(props: {
             <div className="card overflow-hidden">
               <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
                 <h3 className="text-sm font-bold">
-                  {isLeadership ? `Drilldown — ${LEVEL_LABEL[dd.level]}` : "Your team"}
+                  {isLeadership ? `Drilldown - ${LEVEL_LABEL[dd.level]}` : "Your team"}
                 </h3>
                 {isLeadership && dd.level !== "employee" && <span className="text-xs text-ink-400">click to drill</span>}
               </div>
@@ -158,7 +158,7 @@ export default async function Dashboard(props: {
         <div className="space-y-6">
           {isLeadership && leaders.length > 0 && (
             <div className="card p-5">
-              <h3 className="mb-3 text-sm font-bold">Top performers — PAN-India</h3>
+              <h3 className="mb-3 text-sm font-bold">Top performers - PAN-India</h3>
               <ol className="space-y-2">
                 {leaders.map((p, i) => (
                   <li key={p.id ?? i} className="flex items-center justify-between text-xs">

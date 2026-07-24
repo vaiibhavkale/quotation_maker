@@ -1,9 +1,9 @@
 /**
- * Deal Desk gate — deterministic, tenant-wide discount policy.
+ * Deal Desk gate - deterministic, tenant-wide discount policy.
  * Any quote whose blended discount crosses the threshold gets flagged
  * `needsApproval` at create/revise time (src/app/actions/quotes.ts) and
  * cannot move to `approved` until someone with an approver role signs
- * off (enforced again server-side in transitionQuote — never trust the
+ * off (enforced again server-side in transitionQuote - never trust the
  * client for this check).
  */
 

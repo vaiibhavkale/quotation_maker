@@ -51,7 +51,7 @@ export default async function LeadsPage() {
                       <Link href={`/leads/${l.id}`} className="font-semibold text-brand-600 hover:underline">
                         {l.name}
                       </Link>
-                      <p className="text-xs text-ink-400">{l.phone ?? l.email ?? "—"}</p>
+                      <p className="text-xs text-ink-400">{l.phone ?? l.email ?? "-"}</p>
                     </td>
                     <td className="capitalize text-ink-500">{String(l.source).replace("_", " ")}</td>
                     <td className="text-ink-500">{l.assigned_name ?? "Unassigned"}</td>

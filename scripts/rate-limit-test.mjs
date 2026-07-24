@@ -1,4 +1,4 @@
-// One-off check for the AI rate limiter — not part of the app. Fires 31
+// One-off check for the AI rate limiter - not part of the app. Fires 31
 // rapid requests at /api/ai/ask as one logged-in user and confirms the
 // 31st is blocked with a 429, a friendly message, and a Retry-After header.
 const BASE = "http://localhost:3000";

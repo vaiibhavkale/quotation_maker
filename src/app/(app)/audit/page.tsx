@@ -9,7 +9,7 @@ export default async function AuditPage(props: { searchParams: Promise<{ entity?
   const { entity } = await props.searchParams;
   const sql = getSql();
 
-  // audit_logs has RLS off (platform data) — tenant scoping here is manual:
+  // audit_logs has RLS off (platform data) - tenant scoping here is manual:
   // global-scope viewers (CEO/zone/state managers) see the full trail,
   // everyone else only ever sees their own tenant's rows.
   const rows = user.scope === "global"
@@ -61,11 +61,11 @@ export default async function AuditPage(props: { searchParams: Promise<{ entity?
                     {new Date(r.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
                   </td>
                   <td className="text-ink-700">{r.actor_name ?? "System"}</td>
-                  {user.scope === "global" && <td className="text-ink-500">{r.tenant_name ?? "—"}</td>}
+                  {user.scope === "global" && <td className="text-ink-500">{r.tenant_name ?? "-"}</td>}
                   <td className="capitalize text-ink-500">{String(r.entity).replace("_", " ")}</td>
                   <td className="font-semibold">{r.action}</td>
                   <td className="max-w-[280px] truncate text-xs text-ink-400">
-                    {r.detail && Object.keys(r.detail).length > 0 ? JSON.stringify(r.detail) : "—"}
+                    {r.detail && Object.keys(r.detail).length > 0 ? JSON.stringify(r.detail) : "-"}
                   </td>
                 </tr>
               ))}

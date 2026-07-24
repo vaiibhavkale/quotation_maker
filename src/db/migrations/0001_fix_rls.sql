@@ -3,7 +3,7 @@
 -- silently making every policy a no-op).
 --
 -- Supabase enables RLS by default on every new table in `public`. With zero
--- policies, that means default-DENY for any non-owner/non-bypassrls role —
+-- policies, that means default-DENY for any non-owner/non-bypassrls role -
 -- which is correct for tenant data, but breaks tables that were never meant
 -- to be tenant-scoped (login needs to find a user by email before any tenant
 -- context exists; geo tables are shared reference data).
@@ -15,7 +15,7 @@
 --     must render on customer-facing PDF/quote pages; a share is only
 --     findable by its unguessable token). Writes stay tenant-scoped.
 --   - customers, quotations, quote_items, quote_revisions, quote_events,
---     quote_sequences: unchanged — strict single-tenant isolation.
+--     quote_sequences: unchanged - strict single-tenant isolation.
 
 alter table geo_zones disable row level security;
 alter table geo_states disable row level security;
@@ -76,7 +76,7 @@ create policy shares_tenant_update on quote_shares
   );
 
 -- Least-privilege application role. The Supabase `postgres` role has
--- BYPASSRLS and must never be used as the app's runtime connection —
+-- BYPASSRLS and must never be used as the app's runtime connection -
 -- every RLS policy above would silently become a no-op under it.
 --
 -- IMPORTANT: on a fresh project this creates the role with a placeholder

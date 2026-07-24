@@ -3,7 +3,7 @@ import { join } from "node:path";
 import postgres from "postgres";
 
 // Tracks applied migrations in a ledger table so each file runs exactly
-// once, ever — re-running this script (e.g. after adding a new migration)
+// once, ever - re-running this script (e.g. after adding a new migration)
 // no longer replays already-applied files. Idempotent DDL (if not exists /
 // if exists) is still good practice, but it isn't a substitute for this:
 // 0001_fix_rls.sql's `create policy` statements had no built-in re-run

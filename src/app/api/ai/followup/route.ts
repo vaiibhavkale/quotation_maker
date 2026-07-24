@@ -8,7 +8,7 @@ import { fmtINR } from "@/lib/money";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Drafts a WhatsApp follow-up from quote context. Advisory only — no pricing changes. */
+/** Drafts a WhatsApp follow-up from quote context. Advisory only - no pricing changes. */
 export async function POST(req: Request) {
   let user;
   try { user = await requireUser(); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }

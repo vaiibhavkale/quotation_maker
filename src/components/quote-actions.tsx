@@ -96,7 +96,7 @@ export function TransitionButtons({ quoteId, status, needsApproval, approvedById
     <div className="space-y-2">
       {blockedByDealDesk && ["shared", "viewed", "negotiation"].includes(status) && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Awaiting deal-desk approval — only a partner admin or above can clear this quote.
+          Awaiting deal-desk approval - only a partner admin or above can clear this quote.
         </p>
       )}
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
@@ -160,7 +160,7 @@ export function FollowupDrafter({ quoteId, customerPhone }: { quoteId: string; c
         </>
       )}
       <p className="mt-3 text-[11px] text-ink-400">
-        AI drafts the message from quote context — it never changes prices or terms.
+        AI drafts the message from quote context - it never changes prices or terms.
       </p>
     </div>
   );

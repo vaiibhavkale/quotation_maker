@@ -1,11 +1,11 @@
 -- AI usage cap: 30 requests per rolling 30-minute window, per user, shared
--- across every AI endpoint (Ask HIQM + WhatsApp follow-up drafts) — one
+-- across every AI endpoint (Ask HIQM + WhatsApp follow-up drafts) - one
 -- shared budget protecting the underlying Groq API key.
 --
 -- This is persisted in Postgres rather than an in-memory counter on
 -- purpose: the app runs as Vercel serverless functions, where an in-memory
 -- Map resets on every cold start and isn't shared across concurrent
--- instances — it would look like a rate limit without actually being one.
+-- instances - it would look like a rate limit without actually being one.
 --
 -- No cleanup job yet: rows older than the window are dead weight but
 -- harmless at this scale (a handful of rows per active user per half

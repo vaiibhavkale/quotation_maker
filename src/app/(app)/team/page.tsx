@@ -9,7 +9,7 @@ export default async function TeamPage() {
   const isAdmin = ["partner_admin", "super_admin"].includes(user.role);
   const sql = getSql();
 
-  // memberships/users have RLS off (platform data, not tenant-row-scoped) —
+  // memberships/users have RLS off (platform data, not tenant-row-scoped) -
   // tenant isolation here is enforced by this WHERE clause, not the database.
   const members = await sql`
     select m.id as membership_id, m.role, u.id as user_id, u.name, u.email

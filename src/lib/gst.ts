@@ -1,5 +1,5 @@
 /**
- * Deterministic GST engine. AI never touches money — this module does.
+ * Deterministic GST engine. AI never touches money - this module does.
  * Intra-state (seller state == place of supply) → CGST + SGST (half each).
  * Inter-state → IGST.
  * All inputs/outputs integer paise; percentages ×100.

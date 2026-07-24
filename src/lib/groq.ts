@@ -1,6 +1,6 @@
 /**
  * Minimal Groq client (OpenAI-compatible). No SDK dependency.
- * AI is advisory only — it never computes prices, taxes or totals.
+ * AI is advisory only - it never computes prices, taxes or totals.
  */
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };

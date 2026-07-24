@@ -1,4 +1,4 @@
-/** Quotation lifecycle state machine — single source of truth for transitions. */
+/** Quotation lifecycle state machine - single source of truth for transitions. */
 
 export const STATUSES = ["draft", "shared", "viewed", "negotiation", "approved", "converted", "lost"] as const;
 export type QuoteStatus = (typeof STATUSES)[number];

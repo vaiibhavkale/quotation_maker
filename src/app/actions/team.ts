@@ -23,10 +23,10 @@ const InviteSchema = z.object({
 
 /**
  * `users`/`memberships` have RLS disabled entirely (they're platform/auth
- * data, not tenant-owned rows — see 0001_fix_rls.sql), so unlike every
+ * data, not tenant-owned rows - see 0001_fix_rls.sql), so unlike every
  * other action in this app, there is no database-level isolation net here.
  * Every statement below filters by tenant_id in application code on
- * purpose — that's the whole enforcement boundary for this file.
+ * purpose - that's the whole enforcement boundary for this file.
  */
 export async function inviteTeamMember(form: FormData) {
   const user = await requireUser();

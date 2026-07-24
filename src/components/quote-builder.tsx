@@ -107,7 +107,7 @@ export function QuoteBuilder({ customers, projects = [], sellerStateId, initialC
             <div>
               <label className="label">Quote title</label>
               <input className="input" value={title} onChange={(e) => setTitle(e.target.value)}
-                placeholder="Rooftop Solar — 25 kW" />
+                placeholder="Rooftop Solar - 25 kW" />
             </div>
             {projects.length > 0 && (
               <div className="md:col-span-2">

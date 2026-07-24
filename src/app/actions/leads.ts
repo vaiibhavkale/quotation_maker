@@ -91,7 +91,7 @@ const ConvertSchema = z.object({
 
 /**
  * Lead → Customer (created if this lead hasn't converted before) → Project.
- * Lands directly in the quote builder, pre-linked to both — the full
+ * Lands directly in the quote builder, pre-linked to both - the full
  * Lead → Site Visit → Project → Quote → Order chain the PRD describes.
  */
 export async function convertLeadToProject(leadId: string, form: FormData) {

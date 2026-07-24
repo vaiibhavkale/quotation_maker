@@ -5,14 +5,14 @@ import { AcceptButton } from "@/components/accept-button";
 export const dynamic = "force-dynamic";
 
 /**
- * Public, tokenized quote page — what the customer opens from WhatsApp.
+ * Public, tokenized quote page - what the customer opens from WhatsApp.
  * Opening it records a 'viewed' event and flips the quote to Viewed (DocSend-style).
  *
  * No user is logged in here, so there's no session tenantId to draw from.
  * `quote_shares` is the one table with a public-read RLS policy (its token
- * IS the capability — anyone holding it may look up which tenant/quotation
- * it belongs to). Everything after that — the quotation itself, its items,
- * branding — is strictly tenant-isolated, so it's fetched inside `withTenant`
+ * IS the capability - anyone holding it may look up which tenant/quotation
+ * it belongs to). Everything after that - the quotation itself, its items,
+ * branding - is strictly tenant-isolated, so it's fetched inside `withTenant`
  * using the tenant resolved from the share row.
  */
 export default async function PublicQuotePage(props: { params: Promise<{ token: string }> }) {

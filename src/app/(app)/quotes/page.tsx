@@ -47,7 +47,7 @@ export default async function QuotesPage(props: {
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState title="No quotations yet" hint="Create your first quote — it takes under two minutes." />
+        <EmptyState title="No quotations yet" hint="Create your first quote - it takes under two minutes." />
       ) : (
         <div className="card overflow-hidden">
           <table className="table-base">

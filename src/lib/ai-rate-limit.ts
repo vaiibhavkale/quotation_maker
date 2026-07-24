@@ -3,12 +3,12 @@ import type { SessionUser } from "@/lib/auth";
 
 /**
  * AI usage is capped at 30 requests per rolling 30-minute window, per user,
- * shared across every AI endpoint (Ask HIQM + WhatsApp follow-up drafts) —
+ * shared across every AI endpoint (Ask HIQM + WhatsApp follow-up drafts) -
  * one shared budget protecting the underlying Groq API key.
  *
  * Enforced in Postgres, not an in-memory counter: the app runs as Vercel
  * serverless functions, where an in-memory Map would reset on every cold
- * start and isn't shared across concurrent instances — it would look like
+ * start and isn't shared across concurrent instances - it would look like
  * a rate limit without actually being one.
  */
 const MAX_REQUESTS = 30;
@@ -39,7 +39,7 @@ export async function checkAiRateLimit(
       return {
         allowed: false,
         retryAfterSeconds,
-        message: `You've reached the AI request limit — ${MAX_REQUESTS} requests every ${WINDOW_MINUTES} minutes, to keep things fast and fair for everyone. Please try again in ${when}.`,
+        message: `You've reached the AI request limit - ${MAX_REQUESTS} requests every ${WINDOW_MINUTES} minutes, to keep things fast and fair for everyone. Please try again in ${when}.`,
       };
     }
 

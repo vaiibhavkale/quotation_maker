@@ -10,7 +10,7 @@ export type NotifyParams = {
   title: string;
   body?: string | null;
   link?: string | null;
-  /** Set this to make the notification idempotent — same key never fires twice. */
+  /** Set this to make the notification idempotent - same key never fires twice. */
   dedupeKey?: string | null;
 };
 
@@ -19,7 +19,7 @@ export type NotifyParams = {
  * composes inside an *already open* withTenant block (e.g. called from
  * createQuote/transitionQuote in the same transaction that just changed
  * the row) as well as from the standalone sync job below. Always pass the
- * row's own tenant_id, not the caller's — under global scope a single
+ * row's own tenant_id, not the caller's - under global scope a single
  * sync pass touches many tenants at once.
  */
 export async function notify(sql: RawSql, p: NotifyParams) {
@@ -73,7 +73,7 @@ export async function unreadCount(ctx: TenantCtx, userId: string): Promise<numbe
 
 /**
  * Broadcast notifications (user_id null) share one read state across every
- * recipient at this demo's scale (a handful of admins per tenant) — marking
+ * recipient at this demo's scale (a handful of admins per tenant) - marking
  * one admin's view read clears it for the others too. The upgrade path is a
  * `notification_reads(notification_id, user_id)` join table if/when that
  * matters; noted here rather than built now, same call as everywhere else
@@ -96,7 +96,7 @@ export async function markAllRead(ctx: TenantCtx, userId: string) {
 /**
  * The rules engine behind every notification type. Safe to call on every
  * dashboard/bell load (dedupe keys make it a no-op for anything already
- * raised) — there's no cron in this environment, so freshness is "as of
+ * raised) - there's no cron in this environment, so freshness is "as of
  * the last time someone with visibility loaded a page," which is the
  * same trade-off the share-view-flip polling already makes elsewhere.
  * Under a 'global' scope ctx this reaches every tenant in one pass (RLS
@@ -114,7 +114,7 @@ export async function syncAgeingNotifications(ctx: TenantCtx): Promise<{ created
       await notify(sql, {
         tenantId: q.tenant_id, userId: q.created_by_id,
         type: "ageing_unviewed", title: `${q.number} hasn't been opened yet`,
-        body: "Shared over 48 hours ago — consider a nudge.",
+        body: "Shared over 48 hours ago - consider a nudge.",
         link: `/quotes/${q.id}`, dedupeKey: `unviewed:${q.id}`,
       });
       created++;

@@ -34,7 +34,7 @@ export default async function ProjectDetail(props: { params: Promise<{ id: strin
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">{project.name}</h1>
           <p className="mt-1 text-sm text-ink-500">
-            {project.customer_name} · {project.customer_phone ?? "—"}
+            {project.customer_name} · {project.customer_phone ?? "-"}
             {project.lead_name && <> · from lead <span className="text-ink-700">{project.lead_name}</span></>}
           </p>
           {project.address && <p className="mt-1 text-sm text-ink-600">{project.address}</p>}
