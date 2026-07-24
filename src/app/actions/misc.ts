@@ -1,9 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { withTenant, schema } from "@/db";
+import { withTenant } from "@/db";
 import { requireUser } from "@/lib/auth";
 
 const CustomerSchema = z.object({
@@ -21,18 +20,14 @@ export async function createCustomer(form: FormData) {
   const user = await requireUser();
   const data = CustomerSchema.parse(Object.fromEntries(form));
 
-  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async (tx) => {
-    await tx.insert(schema.customers).values({
-      tenantId: user.tenantId,
-      name: data.name,
-      contactName: data.contactName || null,
-      phone: data.phone || null,
-      email: data.email || null,
-      gstin: data.gstin || null,
-      billingAddress: data.billingAddress || null,
-      stateId: data.stateId,
-      cityId: data.cityId || null,
-    });
+  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => {
+    await sql`
+      insert into customers (tenant_id, name, contact_name, phone, email, gstin, billing_address, state_id, city_id)
+      values (
+        ${user.tenantId}, ${data.name}, ${data.contactName || null}, ${data.phone || null},
+        ${data.email || null}, ${data.gstin || null}, ${data.billingAddress || null},
+        ${data.stateId}, ${data.cityId || null}
+      )`;
   });
   revalidatePath("/customers");
 }
@@ -58,22 +53,15 @@ export async function updateBranding(form: FormData) {
   if (!["partner_admin", "super_admin"].includes(user.role)) throw new Error("FORBIDDEN");
   const data = BrandingSchema.parse(Object.fromEntries(form));
 
-  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async (tx) => {
-    await tx.update(schema.brandingProfiles).set({
-      displayName: data.displayName,
-      primaryColor: data.primaryColor,
-      gstin: data.gstin || null,
-      address: data.address || null,
-      phone: data.phone || null,
-      email: data.email || null,
-      bankName: data.bankName || null,
-      bankAccount: data.bankAccount || null,
-      bankIfsc: data.bankIfsc || null,
-      upiId: data.upiId || null,
-      signatureName: data.signatureName || null,
-      terms: data.terms || null,
-      footerNote: data.footerNote || null,
-    }).where(eq(schema.brandingProfiles.tenantId, user.tenantId));
+  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => {
+    await sql`
+      update branding_profiles set
+        display_name = ${data.displayName}, primary_color = ${data.primaryColor},
+        gstin = ${data.gstin || null}, address = ${data.address || null}, phone = ${data.phone || null},
+        email = ${data.email || null}, bank_name = ${data.bankName || null}, bank_account = ${data.bankAccount || null},
+        bank_ifsc = ${data.bankIfsc || null}, upi_id = ${data.upiId || null}, signature_name = ${data.signatureName || null},
+        terms = ${data.terms || null}, footer_note = ${data.footerNote || null}
+      where tenant_id = ${user.tenantId}`;
   });
   revalidatePath("/settings/branding");
   revalidatePath("/", "layout");

@@ -9,7 +9,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "smoke": "node --env-file=.env scripts/smoke-test.mjs",
+    "test:ratelimit": "node --env-file=.env scripts/rate-limit-test.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.1.6",

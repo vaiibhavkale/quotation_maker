@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
-import { eq, and, sql as dsql } from "drizzle-orm";
 import { z } from "zod";
-import { withTenant, getSql, schema } from "@/db";
+import { withTenant, getSql } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { computeTotals } from "@/lib/gst";
 import { canTransition, currentFY, type QuoteStatus } from "@/lib/lifecycle";
+import { requiresDealDeskApproval, canApproveDeals, dealDeskReason } from "@/lib/deal-desk";
+import { notify } from "@/lib/notifications";
 
 const ItemSchema = z.object({
   description: z.string().min(1),
@@ -22,6 +23,7 @@ const ItemSchema = z.object({
 
 const QuoteSchema = z.object({
   customerId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
   title: z.string().min(2),
   validDays: z.coerce.number().min(1).max(90).default(15),
   items: z.array(ItemSchema).min(1),
@@ -37,13 +39,12 @@ export async function createQuote(payload: z.infer<typeof QuoteSchema>) {
   const user = await requireUser();
   const data = QuoteSchema.parse(payload);
 
-  const quoteId = await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async (tx) => {
-    const [tenant] = await getSql()`select state_id from tenants where id = ${user.tenantId}`;
-    const [customer] = await tx.select().from(schema.customers)
-      .where(eq(schema.customers.id, data.customerId)).limit(1);
+  const quoteId = await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => {
+    const [tenant] = await sql`select state_id from tenants where id = ${user.tenantId}`;
+    const [customer] = await sql`select * from customers where id = ${data.customerId} limit 1`;
     if (!customer) throw new Error("Customer not found");
 
-    const interState = Boolean(customer.stateId && tenant.state_id && customer.stateId !== tenant.state_id);
+    const interState = Boolean(customer.state_id && tenant.state_id && customer.state_id !== tenant.state_id);
     const items = data.items.map((it) => ({
       quantity: Math.round(it.quantity * 100),
       rate: Math.round(it.rate * 100),
@@ -51,58 +52,60 @@ export async function createQuote(payload: z.infer<typeof QuoteSchema>) {
       gstRatePct: Math.round(it.gstRatePct * 100),
     }));
     const totals = computeTotals(items, interState);
+    const discPct = totals.subtotal > 0 ? (totals.discountTotal / totals.subtotal) * 100 : 0;
+    const needsApproval = requiresDealDeskApproval({ discountPct: discPct, grandTotal: totals.grandTotal });
 
     // per-tenant FY sequence
     const fy = currentFY();
-    const seqRows = await tx.execute(dsql`
+    const [seqRow] = await sql`
       insert into quote_sequences (tenant_id, fy, last_value) values (${user.tenantId}, ${fy}, 1)
       on conflict (tenant_id, fy) do update set last_value = quote_sequences.last_value + 1
-      returning last_value`);
-    const seq = Number((seqRows as unknown as { last_value: number }[])[0].last_value);
+      returning last_value`;
+    const seq = Number(seqRow.last_value);
     const number = `${user.tenantSlug.toUpperCase()}/QT/${fy}/${String(seq).padStart(5, "0")}`;
+    const validUntil = new Date(Date.now() + data.validDays * 864e5);
 
-    const [q] = await tx.insert(schema.quotations).values({
-      tenantId: user.tenantId,
-      customerId: data.customerId,
-      createdById: user.id,
-      number,
-      title: data.title,
-      status: "draft",
-      placeOfSupplyStateId: customer.stateId,
-      subtotal: totals.subtotal,
-      discountTotal: totals.discountTotal,
-      cgst: totals.cgst,
-      sgst: totals.sgst,
-      igst: totals.igst,
-      grandTotal: totals.grandTotal,
-      validUntil: new Date(Date.now() + data.validDays * 864e5),
-    }).returning({ id: schema.quotations.id });
+    const [q] = await sql`
+      insert into quotations (
+        tenant_id, customer_id, project_id, created_by_id, number, title, status,
+        place_of_supply_state_id, subtotal, discount_total, cgst, sgst, igst, grand_total, valid_until,
+        needs_approval
+      ) values (
+        ${user.tenantId}, ${data.customerId}, ${data.projectId ?? null}, ${user.id}, ${number}, ${data.title}, 'draft',
+        ${customer.state_id}, ${totals.subtotal}, ${totals.discountTotal}, ${totals.cgst}, ${totals.sgst},
+        ${totals.igst}, ${totals.grandTotal}, ${validUntil}, ${needsApproval}
+      ) returning id`;
 
-    await tx.insert(schema.quoteItems).values(data.items.map((it, i) => ({
-      tenantId: user.tenantId,
-      quotationId: q.id,
-      position: i,
-      description: it.description,
-      hsnCode: it.hsnCode || null,
-      unit: it.unit,
-      quantity: items[i].quantity,
-      rate: items[i].rate,
-      discountPct: items[i].discountPct,
-      gstRatePct: items[i].gstRatePct,
-      lineTotal: totals.lineTotals[i],
-    })));
+    if (needsApproval) {
+      const reason = dealDeskReason({ discountPct: discPct, grandTotal: totals.grandTotal }) ?? "Exceeds self-serve limit";
+      await notify(sql, {
+        tenantId: user.tenantId, userId: null, type: "approval_needed",
+        title: `${number} needs deal-desk approval`, body: reason,
+        link: `/quotes/${q.id}`, dedupeKey: `approval:${q.id}`,
+      });
+    }
 
-    await tx.insert(schema.quoteRevisions).values({
-      tenantId: user.tenantId, quotationId: q.id, revisionNo: 1,
-      snapshot: { number, title: data.title, items: data.items, totals },
-      createdById: user.id,
-    });
+    for (let i = 0; i < data.items.length; i++) {
+      const it = data.items[i];
+      await sql`
+        insert into quote_items (
+          tenant_id, quotation_id, position, description, hsn_code, unit,
+          quantity, rate, discount_pct, gst_rate_pct, line_total
+        ) values (
+          ${user.tenantId}, ${q.id}, ${i}, ${it.description}, ${it.hsnCode || null}, ${it.unit},
+          ${items[i].quantity}, ${items[i].rate}, ${items[i].discountPct}, ${items[i].gstRatePct}, ${totals.lineTotals[i]}
+        )`;
+    }
 
-    await tx.insert(schema.quoteEvents).values({
-      tenantId: user.tenantId, quotationId: q.id, type: "created", actorId: user.id,
-    });
+    await sql`
+      insert into quote_revisions (tenant_id, quotation_id, revision_no, snapshot, created_by_id)
+      values (${user.tenantId}, ${q.id}, 1, ${JSON.stringify({ number, title: data.title, items: data.items, totals })}, ${user.id})`;
 
-    return q.id;
+    await sql`
+      insert into quote_events (tenant_id, quotation_id, type, actor_id)
+      values (${user.tenantId}, ${q.id}, 'created', ${user.id})`;
+
+    return q.id as string;
   });
 
   await audit(user.tenantId, user.id, "quotation", quoteId, "create");
@@ -113,19 +116,45 @@ export async function createQuote(payload: z.infer<typeof QuoteSchema>) {
 export async function transitionQuote(quoteId: string, to: QuoteStatus, reason?: string) {
   const user = await requireUser();
 
-  await withTenant({ tenantId: user.tenantId, scope: user.scope }, async (tx) => {
-    const [q] = await tx.select().from(schema.quotations).where(eq(schema.quotations.id, quoteId)).limit(1);
+  await withTenant({ tenantId: user.tenantId, scope: user.scope }, async ({ raw: sql }) => {
+    const [q] = await sql`select * from quotations where id = ${quoteId} limit 1`;
     if (!q) throw new Error("Quote not found");
     if (!canTransition(q.status as QuoteStatus, to)) {
       throw new Error(`Invalid transition ${q.status} → ${to}`);
     }
-    await tx.update(schema.quotations)
-      .set({ status: to, updatedAt: new Date(), ...(to === "lost" ? { lostReason: reason ?? "Not specified" } : {}) })
-      .where(eq(schema.quotations.id, quoteId));
-    await tx.insert(schema.quoteEvents).values({
-      tenantId: q.tenantId, quotationId: quoteId, type: to, actorId: user.id,
-      meta: reason ? { reason } : null,
-    });
+
+    if (to === "approved" && q.needs_approval && !q.approved_by_id && !canApproveDeals(user.role)) {
+      throw new Error(
+        "DEAL_DESK_APPROVAL_REQUIRED: this quote's discount/value exceeds the self-serve limit — only a partner admin or above can clear it"
+      );
+    }
+
+    if (to === "lost") {
+      await sql`update quotations set status = ${to}, updated_at = now(), lost_reason = ${reason ?? "Not specified"}
+        where id = ${quoteId}`;
+    } else if (to === "approved") {
+      await sql`update quotations set status = ${to}, updated_at = now(), approved_by_id = ${user.id}
+        where id = ${quoteId}`;
+    } else {
+      await sql`update quotations set status = ${to}, updated_at = now() where id = ${quoteId}`;
+    }
+    await sql`insert into quote_events (tenant_id, quotation_id, type, actor_id, meta)
+      values (${q.tenant_id}, ${quoteId}, ${to}, ${user.id}, ${reason ? JSON.stringify({ reason }) : null})`;
+
+    if (to === "converted") {
+      const orderNumber = q.number.includes("/QT/")
+        ? q.number.replace("/QT/", "/ORD/")
+        : `${q.number}-ORD`;
+      const [order] = await sql`
+        insert into orders (tenant_id, quotation_id, order_number, stage)
+        values (${q.tenant_id}, ${quoteId}, ${orderNumber}, 'production')
+        on conflict (quotation_id) do nothing
+        returning id`;
+      if (order) {
+        await sql`insert into order_events (tenant_id, order_id, type, actor_id)
+          values (${q.tenant_id}, ${order.id}, 'created', ${user.id})`;
+      }
+    }
   });
 
   await audit(user.tenantId, user.id, "quotation", quoteId, `status:${to}`, { reason });
@@ -138,13 +167,13 @@ export async function reviseQuote(quoteId: string, payload: z.infer<typeof Quote
   const user = await requireUser();
   const data = QuoteSchema.parse(payload);
 
-  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async (tx) => {
-    const [q] = await tx.select().from(schema.quotations).where(eq(schema.quotations.id, quoteId)).limit(1);
+  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => {
+    const [q] = await sql`select * from quotations where id = ${quoteId} limit 1`;
     if (!q) throw new Error("Quote not found");
 
-    const [tenant] = await getSql()`select state_id from tenants where id = ${user.tenantId}`;
-    const [customer] = await tx.select().from(schema.customers).where(eq(schema.customers.id, q.customerId)).limit(1);
-    const interState = Boolean(customer?.stateId && tenant.state_id && customer.stateId !== tenant.state_id);
+    const [tenant] = await sql`select state_id from tenants where id = ${user.tenantId}`;
+    const [customer] = await sql`select * from customers where id = ${q.customer_id} limit 1`;
+    const interState = Boolean(customer?.state_id && tenant.state_id && customer.state_id !== tenant.state_id);
 
     const items = data.items.map((it) => ({
       quantity: Math.round(it.quantity * 100),
@@ -153,33 +182,47 @@ export async function reviseQuote(quoteId: string, payload: z.infer<typeof Quote
       gstRatePct: Math.round(it.gstRatePct * 100),
     }));
     const totals = computeTotals(items, interState);
-    const nextRev = q.currentRevision + 1;
+    const nextRev = q.current_revision + 1;
+    const discPct = totals.subtotal > 0 ? (totals.discountTotal / totals.subtotal) * 100 : 0;
+    const needsApproval = requiresDealDeskApproval({ discountPct: discPct, grandTotal: totals.grandTotal });
 
-    await tx.delete(schema.quoteItems).where(eq(schema.quoteItems.quotationId, quoteId));
-    await tx.insert(schema.quoteItems).values(data.items.map((it, i) => ({
-      tenantId: user.tenantId, quotationId: quoteId, position: i,
-      description: it.description, hsnCode: it.hsnCode || null, unit: it.unit,
-      quantity: items[i].quantity, rate: items[i].rate,
-      discountPct: items[i].discountPct, gstRatePct: items[i].gstRatePct,
-      lineTotal: totals.lineTotals[i],
-    })));
+    await sql`delete from quote_items where quotation_id = ${quoteId}`;
+    for (let i = 0; i < data.items.length; i++) {
+      const it = data.items[i];
+      await sql`
+        insert into quote_items (
+          tenant_id, quotation_id, position, description, hsn_code, unit,
+          quantity, rate, discount_pct, gst_rate_pct, line_total
+        ) values (
+          ${user.tenantId}, ${quoteId}, ${i}, ${it.description}, ${it.hsnCode || null}, ${it.unit},
+          ${items[i].quantity}, ${items[i].rate}, ${items[i].discountPct}, ${items[i].gstRatePct}, ${totals.lineTotals[i]}
+        )`;
+    }
 
-    await tx.update(schema.quotations).set({
-      title: data.title,
-      currentRevision: nextRev,
-      status: "shared",
-      subtotal: totals.subtotal, discountTotal: totals.discountTotal,
-      cgst: totals.cgst, sgst: totals.sgst, igst: totals.igst, grandTotal: totals.grandTotal,
-      updatedAt: new Date(),
-    }).where(eq(schema.quotations.id, quoteId));
+    await sql`
+      update quotations set
+        title = ${data.title}, current_revision = ${nextRev}, status = 'shared',
+        subtotal = ${totals.subtotal}, discount_total = ${totals.discountTotal},
+        cgst = ${totals.cgst}, sgst = ${totals.sgst}, igst = ${totals.igst}, grand_total = ${totals.grandTotal},
+        needs_approval = ${needsApproval}, approved_by_id = null,
+        updated_at = now()
+      where id = ${quoteId}`;
 
-    await tx.insert(schema.quoteRevisions).values({
-      tenantId: user.tenantId, quotationId: quoteId, revisionNo: nextRev,
-      snapshot: { title: data.title, items: data.items, totals }, reason, createdById: user.id,
-    });
-    await tx.insert(schema.quoteEvents).values({
-      tenantId: user.tenantId, quotationId: quoteId, type: "revised", actorId: user.id, meta: { revision: nextRev, reason },
-    });
+    await sql`
+      insert into quote_revisions (tenant_id, quotation_id, revision_no, snapshot, reason, created_by_id)
+      values (${user.tenantId}, ${quoteId}, ${nextRev}, ${JSON.stringify({ title: data.title, items: data.items, totals })}, ${reason}, ${user.id})`;
+    await sql`
+      insert into quote_events (tenant_id, quotation_id, type, actor_id, meta)
+      values (${user.tenantId}, ${quoteId}, 'revised', ${user.id}, ${JSON.stringify({ revision: nextRev, reason })})`;
+
+    if (needsApproval) {
+      const dealReason = dealDeskReason({ discountPct: discPct, grandTotal: totals.grandTotal }) ?? "Exceeds self-serve limit";
+      await notify(sql, {
+        tenantId: user.tenantId, userId: null, type: "approval_needed",
+        title: `${q.number} needs deal-desk approval`, body: dealReason,
+        link: `/quotes/${quoteId}`, dedupeKey: `approval:${quoteId}:r${nextRev}`,
+      });
+    }
   });
 
   await audit(user.tenantId, user.id, "quotation", quoteId, "revise", { reason });
@@ -190,20 +233,19 @@ export async function createShare(quoteId: string, channel: "whatsapp" | "email"
   const user = await requireUser();
   const token = randomBytes(18).toString("base64url");
 
-  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async (tx) => {
-    const [q] = await tx.select().from(schema.quotations).where(eq(schema.quotations.id, quoteId)).limit(1);
+  await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => {
+    const [q] = await sql`select * from quotations where id = ${quoteId} limit 1`;
     if (!q) throw new Error("Quote not found");
 
-    await tx.insert(schema.quoteShares).values({
-      tenantId: user.tenantId, quotationId: quoteId, token, channel,
-      expiresAt: new Date(Date.now() + 30 * 864e5),
-    });
+    const expiresAt = new Date(Date.now() + 30 * 864e5);
+    await sql`insert into quote_shares (tenant_id, quotation_id, token, channel, expires_at)
+      values (${user.tenantId}, ${quoteId}, ${token}, ${channel}, ${expiresAt})`;
+
     if (q.status === "draft") {
-      await tx.update(schema.quotations).set({ status: "shared", updatedAt: new Date() })
-        .where(and(eq(schema.quotations.id, quoteId), eq(schema.quotations.status, "draft")));
-      await tx.insert(schema.quoteEvents).values({
-        tenantId: user.tenantId, quotationId: quoteId, type: "shared", actorId: user.id, meta: { channel },
-      });
+      await sql`update quotations set status = 'shared', updated_at = now()
+        where id = ${quoteId} and status = 'draft'`;
+      await sql`insert into quote_events (tenant_id, quotation_id, type, actor_id, meta)
+        values (${user.tenantId}, ${quoteId}, 'shared', ${user.id}, ${JSON.stringify({ channel })})`;
     }
   });
 

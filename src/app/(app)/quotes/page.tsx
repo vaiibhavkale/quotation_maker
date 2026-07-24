@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { getSql } from "@/db";
+import { withTenant } from "@/db";
 import { Money, StatusBadge, EmptyState } from "@/components/ui";
 import { STATUSES } from "@/lib/lifecycle";
 
@@ -11,19 +11,18 @@ export default async function QuotesPage(props: {
 }) {
   const user = await requireUser();
   const { status, q } = await props.searchParams;
-  const sql = getSql();
 
-  const rows = await sql`
+  const rows = await withTenant({ tenantId: user.tenantId, scope: user.scope }, async ({ raw: sql }) => sql`
     select q.id, q.number, q.title, q.status, q.grand_total, q.current_revision,
            q.created_at, q.updated_at, c.name as customer_name, t.name as tenant_name
     from quotations q
     join customers c on c.id = q.customer_id
     join tenants t on t.id = q.tenant_id
-    where ${user.scope === "global" ? sql`true` : sql`q.tenant_id = ${user.tenantId}`}
+    where true
       ${status && (STATUSES as readonly string[]).includes(status) ? sql`and q.status = ${status}` : sql``}
       ${q ? sql`and (q.number ilike ${"%" + q + "%"} or q.title ilike ${"%" + q + "%"} or c.name ilike ${"%" + q + "%"})` : sql``}
     order by q.updated_at desc
-    limit 100`;
+    limit 100`);
 
   return (
     <div>

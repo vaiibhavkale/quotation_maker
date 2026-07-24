@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { groqChat, aiEnabled } from "@/lib/groq";
+import { checkAiRateLimit } from "@/lib/ai-rate-limit";
 import { overview, drilldown, statusFunnel, channelRanking, ageing } from "@/lib/analytics";
-import { getSql } from "@/db";
+import { withTenant } from "@/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,25 +19,33 @@ export async function POST(req: Request) {
   if (!aiEnabled()) {
     return NextResponse.json({ error: "AI is not configured yet (set GROQ_API_KEY)." }, { status: 503 });
   }
+  const limit = await checkAiRateLimit(user, "ask");
+  if (!limit.allowed) {
+    return NextResponse.json({ error: limit.message }, {
+      status: 429,
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
+  }
 
   const { question } = (await req.json()) as { question?: string };
   if (!question?.trim()) return NextResponse.json({ error: "Ask a question" }, { status: 400 });
 
-  const sql = getSql();
-  const [ov, dd, funnel, channels, age, lossReasons, topQuotes] = await Promise.all([
+  const [ov, dd, funnel, channels, age, extra] = await Promise.all([
     overview(user),
     drilldown(user),
     statusFunnel(user),
     channelRanking(user),
     ageing(user),
-    sql`select lost_reason, count(*)::int as n from quotations
-        where status = 'lost' and ${user.scope === "global" ? sql`true` : sql`tenant_id = ${user.tenantId}`}
-        group by lost_reason order by n desc limit 5`,
-    sql`select q.number, q.title, q.status, q.grand_total, t.name as partner
+    withTenant({ tenantId: user.tenantId, scope: user.scope }, async ({ raw: sql }) => {
+      const lossReasons = await sql`select lost_reason, count(*)::int as n from quotations
+        where status = 'lost' group by lost_reason order by n desc limit 5`;
+      const topQuotes = await sql`select q.number, q.title, q.status, q.grand_total, t.name as partner
         from quotations q join tenants t on t.id = q.tenant_id
-        where ${user.scope === "global" ? sql`true` : sql`q.tenant_id = ${user.tenantId}`}
-        order by q.grand_total desc limit 5`,
+        order by q.grand_total desc limit 5`;
+      return { lossReasons, topQuotes };
+    }),
   ]);
+  const { lossReasons, topQuotes } = extra;
 
   const context = {
     viewer: { role: user.role, scope: user.scope, tenant: user.tenantName },

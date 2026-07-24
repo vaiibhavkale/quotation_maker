@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { getSql } from "@/db";
+import { withTenant } from "@/db";
 import { ReviseForm } from "@/components/revise-form";
 
 export const dynamic = "force-dynamic";
@@ -8,15 +8,17 @@ export const dynamic = "force-dynamic";
 export default async function RevisePage(props: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await props.params;
-  const sql = getSql();
 
-  const [q] = await sql`
-    select q.id, q.number, q.title, q.customer_id
-    from quotations q
-    where q.id = ${id} and q.tenant_id = ${user.tenantId}`;
+  const { q, items } = await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => {
+    const [qRow] = await sql`
+      select q.id, q.number, q.title, q.customer_id
+      from quotations q
+      where q.id = ${id}`;
+    if (!qRow) return { q: null, items: [] };
+    const itemRows = await sql`select * from quote_items where quotation_id = ${id} order by position`;
+    return { q: qRow, items: itemRows };
+  });
   if (!q) notFound();
-
-  const items = await sql`select * from quote_items where quotation_id = ${id} order by position`;
 
   return (
     <div>

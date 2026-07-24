@@ -1,4 +1,4 @@
-import { getSql } from "@/db";
+import { getSql, withTenant } from "@/db";
 import { fmtINR, pct } from "@/lib/money";
 import { AcceptButton } from "@/components/accept-button";
 
@@ -7,15 +7,21 @@ export const dynamic = "force-dynamic";
 /**
  * Public, tokenized quote page — what the customer opens from WhatsApp.
  * Opening it records a 'viewed' event and flips the quote to Viewed (DocSend-style).
+ *
+ * No user is logged in here, so there's no session tenantId to draw from.
+ * `quote_shares` is the one table with a public-read RLS policy (its token
+ * IS the capability — anyone holding it may look up which tenant/quotation
+ * it belongs to). Everything after that — the quotation itself, its items,
+ * branding — is strictly tenant-isolated, so it's fetched inside `withTenant`
+ * using the tenant resolved from the share row.
  */
 export default async function PublicQuotePage(props: { params: Promise<{ token: string }> }) {
   const { token } = await props.params;
   const sql = getSql();
 
   const [share] = await sql`
-    select s.*, q.id as quote_id, q.tenant_id
-    from quote_shares s join quotations q on q.id = s.quotation_id
-    where s.token = ${token} and s.revoked = false`;
+    select tenant_id, quotation_id, channel, revoked, expires_at
+    from quote_shares where token = ${token} and revoked = false`;
 
   if (!share || (share.expires_at && new Date(share.expires_at) < new Date())) {
     return (
@@ -28,21 +34,24 @@ export default async function PublicQuotePage(props: { params: Promise<{ token: 
     );
   }
 
-  // ── Tracking: record view + flip status (server-side, no JS needed) ──
-  await sql`insert into quote_events (tenant_id, quotation_id, type, meta)
-    values (${share.tenant_id}, ${share.quote_id}, 'viewed', ${JSON.stringify({ token, channel: share.channel })})`;
-  await sql`update quotations set status = 'viewed', updated_at = now()
-    where id = ${share.quote_id} and status = 'shared'`;
+  const { q, items } = await withTenant({ tenantId: share.tenant_id, scope: "tenant" }, async ({ raw: tx }) => {
+    // - Tracking: record view + flip status (server-side, no JS needed) -
+    await tx`insert into quote_events (tenant_id, quotation_id, type, meta)
+      values (${share.tenant_id}, ${share.quotation_id}, 'viewed', ${JSON.stringify({ token, channel: share.channel })})`;
+    await tx`update quotations set status = 'viewed', updated_at = now()
+      where id = ${share.quotation_id} and status = 'shared'`;
 
-  const [q] = await sql`
-    select q.*, c.name as c_name, c.gstin as c_gstin,
-           b.display_name, b.primary_color, b.gstin as b_gstin, b.address as b_addr,
-           b.phone as b_phone, b.email as b_email, b.upi_id, b.terms, b.powered_by_heseos
-    from quotations q
-    join customers c on c.id = q.customer_id
-    join branding_profiles b on b.tenant_id = q.tenant_id
-    where q.id = ${share.quote_id}`;
-  const items = await sql`select * from quote_items where quotation_id = ${share.quote_id} order by position`;
+    const [qRow] = await tx`
+      select q.*, c.name as c_name, c.gstin as c_gstin,
+             b.display_name, b.primary_color, b.gstin as b_gstin, b.address as b_addr,
+             b.phone as b_phone, b.email as b_email, b.upi_id, b.terms, b.powered_by_heseos
+      from quotations q
+      join customers c on c.id = q.customer_id
+      join branding_profiles b on b.tenant_id = q.tenant_id
+      where q.id = ${share.quotation_id}`;
+    const itemRows = await tx`select * from quote_items where quotation_id = ${share.quotation_id} order by position`;
+    return { q: qRow, items: itemRows };
+  });
 
   const color = q.primary_color ?? "#E8821E";
   const interState = Number(q.igst) > 0;

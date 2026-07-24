@@ -3,7 +3,7 @@
 
 create extension if not exists pgcrypto;
 
-/* ── Geography ─────────────────────────────────────────── */
+/* - Geography ---------------------─ */
 create table if not exists geo_zones (
   id text primary key,
   name text not null
@@ -22,7 +22,7 @@ create table if not exists geo_cities (
   state_id text not null references geo_states(id)
 );
 
-/* ── Tenancy ───────────────────────────────────────────── */
+/* - Tenancy ----------------------─ */
 create table if not exists tenants (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -73,7 +73,7 @@ create table if not exists memberships (
 );
 create unique index if not exists memberships_user_tenant on memberships(user_id, tenant_id);
 
-/* ── CRM ───────────────────────────────────────────────── */
+/* - CRM ------------------------─ */
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references tenants(id),
@@ -89,7 +89,7 @@ create table if not exists customers (
 );
 create index if not exists customers_tenant_idx on customers(tenant_id);
 
-/* ── Quotations ────────────────────────────────────────── */
+/* - Quotations --------------------- */
 create table if not exists quotations (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references tenants(id),
@@ -186,7 +186,7 @@ create table if not exists audit_logs (
 );
 create index if not exists audit_tenant_idx on audit_logs(tenant_id);
 
-/* ── Row-Level Security ────────────────────────────────────
+/* - Row-Level Security ------------------
    Context is set per-transaction by the app:
      app.tenant_id  – tenant of the acting user
      app.scope      – 'tenant' (default) or 'global' (HESEOS leadership/service)

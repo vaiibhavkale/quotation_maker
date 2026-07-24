@@ -2,7 +2,7 @@ import {
   pgTable, uuid, text, integer, bigint, timestamp, boolean, jsonb, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-/* ───────────────────────── Geography ───────────────────────── */
+/* ------------─ Geography ------------─ */
 
 export const geoZones = pgTable("geo_zones", {
   id: text("id").primaryKey(), // north | south | east | west | central
@@ -22,7 +22,7 @@ export const geoCities = pgTable("geo_cities", {
   stateId: text("state_id").notNull().references(() => geoStates.id),
 });
 
-/* ───────────────────────── Tenancy ───────────────────────── */
+/* ------------─ Tenancy ------------─ */
 
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -73,7 +73,51 @@ export const memberships = pgTable("memberships", {
   geoScope: jsonb("geo_scope"), // { zoneId?, stateId?, cityId? } for HESEOS managers
 }, (t) => [uniqueIndex("memberships_user_tenant").on(t.userId, t.tenantId)]);
 
-/* ───────────────────────── CRM ───────────────────────── */
+/* ------------─ CRM: Leads & Site Visits ------------─ */
+
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  email: text("email"),
+  source: text("source").notNull().default("referral"), // referral | website | walk_in | cold_call | partner
+  notes: text("notes"),
+  status: text("status").notNull().default("new"),
+  // new | site_visit_scheduled | site_visit_done | converted | dropped
+  dropReason: text("drop_reason"),
+  assignedToId: uuid("assigned_to_id").references(() => users.id),
+  customerId: uuid("customer_id").references(() => customers.id), // set once converted
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("leads_tenant_idx").on(t.tenantId)]);
+
+export const siteVisits = pgTable("site_visits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  engineerId: uuid("engineer_id").references(() => users.id),
+  status: text("status").notNull().default("scheduled"), // scheduled | completed | cancelled
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/* ------------─ Project Management ------------─ */
+
+export const projects = pgTable("projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  customerId: uuid("customer_id").notNull().references(() => customers.id),
+  leadId: uuid("lead_id").references(() => leads.id),
+  name: text("name").notNull(),
+  address: text("address"),
+  status: text("status").notNull().default("active"), // active | on_hold | completed | cancelled
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("projects_tenant_idx").on(t.tenantId)]);
+
+/* ------------─ CRM: Customers ------------─ */
 
 export const customers = pgTable("customers", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -89,19 +133,22 @@ export const customers = pgTable("customers", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("customers_tenant_idx").on(t.tenantId)]);
 
-/* ───────────────────────── Quotations ───────────────────────── */
+/* ------------─ Quotations ------------─ */
 /* Money is stored as integer paise. */
 
 export const quotations = pgTable("quotations", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
   customerId: uuid("customer_id").notNull().references(() => customers.id),
+  projectId: uuid("project_id").references(() => projects.id),
   createdById: uuid("created_by_id").notNull().references(() => users.id),
   number: text("number").notNull(), // ACME/QT/2026-27/00042
   title: text("title").notNull(),
   status: text("status").notNull().default("draft"),
   // draft | shared | viewed | negotiation | approved | converted | lost
   currentRevision: integer("current_revision").notNull().default(1),
+  needsApproval: boolean("needs_approval").notNull().default(false),
+  approvedById: uuid("approved_by_id").references(() => users.id),
   placeOfSupplyStateId: text("place_of_supply_state_id").references(() => geoStates.id),
   subtotal: bigint("subtotal", { mode: "number" }).notNull().default(0),
   discountTotal: bigint("discount_total", { mode: "number" }).notNull().default(0),
@@ -176,7 +223,60 @@ export const quoteSequences = pgTable("quote_sequences", {
   lastValue: integer("last_value").notNull().default(0),
 }, (t) => [uniqueIndex("quote_sequences_pk").on(t.tenantId, t.fy)]);
 
-/* ───────────────────────── Platform ───────────────────────── */
+/* ------------─ Order Conversion ------------─ */
+
+export const orders = pgTable("orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  quotationId: uuid("quotation_id").notNull().references(() => quotations.id).unique(),
+  orderNumber: text("order_number").notNull(),
+  stage: text("stage").notNull().default("production"),
+  // production | dispatch | installation | completed
+  advanceReceived: bigint("advance_received", { mode: "number" }).notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("orders_tenant_idx").on(t.tenantId)]);
+
+export const orderEvents = pgTable("order_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // created | production | dispatch | installation | completed
+  actorId: uuid("actor_id"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/* ------------─ Notifications ------------─ */
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  userId: uuid("user_id"), // null = broadcast to every admin/leadership in scope
+  type: text("type").notNull(),
+  // ageing_unviewed | ageing_silent | approval_needed | quote_viewed | site_visit_due
+  title: text("title").notNull(),
+  body: text("body"),
+  link: text("link"),
+  dedupeKey: text("dedupe_key"), // prevents re-notifying the same condition
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("notifications_tenant_idx").on(t.tenantId),
+  uniqueIndex("notifications_dedupe").on(t.tenantId, t.dedupeKey),
+]);
+
+/* ------------─ AI usage / rate limiting ------------─ */
+
+export const aiRequests = pgTable("ai_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull().references(() => tenants.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull(), // ask | followup
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("ai_requests_user_window_idx").on(t.userId, t.createdAt)]);
+
+/* ------------─ Platform ------------─ */
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),

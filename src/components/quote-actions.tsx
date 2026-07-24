@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { createShare, transitionQuote } from "@/app/actions/quotes";
 import type { QuoteStatus } from "@/lib/lifecycle";
 
+function cleanErrorMessage(msg: string): string {
+  const marker = "DEAL_DESK_APPROVAL_REQUIRED: ";
+  return msg.startsWith(marker) ? msg.slice(marker.length) : msg;
+}
+
 /** Silently refreshes the page every 5s so 'Viewed' flips live during the demo. */
 export function LivePoller() {
   const router = useRouter();
@@ -58,27 +63,52 @@ export function ShareButtons({ quoteId, customerPhone, appUrl }: {
   );
 }
 
-export function TransitionButtons({ quoteId, status }: { quoteId: string; status: QuoteStatus }) {
+export function TransitionButtons({ quoteId, status, needsApproval, approvedById, canApprove }: {
+  quoteId: string; status: QuoteStatus;
+  needsApproval: boolean; approvedById: string | null; canApprove: boolean;
+}) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
   const go = (to: QuoteStatus) => {
+    setError(null);
     const reason = to === "lost" ? window.prompt("Loss reason?") ?? "Not specified" : undefined;
-    start(async () => { await transitionQuote(quoteId, to, reason); });
+    start(async () => {
+      try {
+        await transitionQuote(quoteId, to, reason);
+      } catch (e) {
+        setError(cleanErrorMessage((e as Error).message || "Couldn't update status"));
+      }
+    });
   };
+
+  const blockedByDealDesk = needsApproval && !approvedById && !canApprove;
 
   const next: { to: QuoteStatus; label: string; cls: string }[] = [];
   if (status === "viewed" || status === "shared") next.push({ to: "negotiation", label: "Start negotiation", cls: "btn-secondary" });
-  if (["shared", "viewed", "negotiation"].includes(status)) next.push({ to: "approved", label: "Mark approved", cls: "btn-primary" });
+  if (["shared", "viewed", "negotiation"].includes(status) && !blockedByDealDesk) {
+    next.push({ to: "approved", label: "Mark approved", cls: "btn-primary" });
+  }
   if (status === "approved") next.push({ to: "converted", label: "Convert to order", cls: "btn-primary" });
   if (!["converted", "lost"].includes(status)) next.push({ to: "lost", label: "Mark lost", cls: "btn-ghost" });
 
-  if (next.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-2">
-      {next.map((n) => (
-        <button key={n.to} onClick={() => go(n.to)} disabled={pending} className={n.cls + " text-xs"}>
-          {n.label}
-        </button>
-      ))}
+    <div className="space-y-2">
+      {blockedByDealDesk && ["shared", "viewed", "negotiation"].includes(status) && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Awaiting deal-desk approval — only a partner admin or above can clear this quote.
+        </p>
+      )}
+      {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+      {next.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {next.map((n) => (
+            <button key={n.to} onClick={() => go(n.to)} disabled={pending} className={n.cls + " text-xs"}>
+              {n.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

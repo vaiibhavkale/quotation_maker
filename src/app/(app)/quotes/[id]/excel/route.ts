@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { requireUser } from "@/lib/auth";
-import { getSql } from "@/db";
 import { loadQuoteBundle } from "@/lib/quote-data";
 
 export const runtime = "nodejs";
@@ -10,13 +9,8 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await ctx.params;
-  const sql = getSql();
 
-  const [q] = await sql`select tenant_id from quotations where id = ${id}`;
-  if (!q || (user.scope !== "global" && q.tenant_id !== user.tenantId)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  const b = await loadQuoteBundle(id);
+  const b = await loadQuoteBundle(id, { tenantId: user.tenantId, scope: user.scope });
   if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const wb = new ExcelJS.Workbook();

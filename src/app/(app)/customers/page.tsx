@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { getSql } from "@/db";
+import { getSql, withTenant } from "@/db";
 import { createCustomer } from "@/app/actions/misc";
 import { EmptyState } from "@/components/ui";
 
@@ -7,13 +7,12 @@ export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
   const user = await requireUser();
-  const sql = getSql();
 
-  const customers = await sql`
+  const customers = await withTenant({ tenantId: user.tenantId, scope: "tenant" }, async ({ raw: sql }) => sql`
     select c.*, s.name as state_name from customers c
     left join geo_states s on s.id = c.state_id
-    where c.tenant_id = ${user.tenantId} order by c.created_at desc`;
-  const states = await sql`select id, name from geo_states order by name`;
+    where c.tenant_id = ${user.tenantId} order by c.created_at desc`);
+  const states = await getSql()`select id, name from geo_states order by name`;
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

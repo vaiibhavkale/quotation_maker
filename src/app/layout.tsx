@@ -8,8 +8,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      {/* suppressHydrationWarning: some browser extensions (password
+          managers, ad-blockers) inject attributes like __processed_*__
+          into <body> before React hydrates. That's a false-positive
+          mismatch, not a real one — this only silences attribute-level
+          warnings on this node, not genuine structural hydration errors. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

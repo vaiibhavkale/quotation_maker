@@ -1,30 +1,34 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { overview, drilldown, statusFunnel, channelRanking, ageing } from "@/lib/analytics";
+import { overview, drilldown, statusFunnel, channelRanking, ageing, topPerformers } from "@/lib/analytics";
 import { fmtINR } from "@/lib/money";
 import { StatCard, Money, StatusBadge } from "@/components/ui";
-import { getSql } from "@/db";
+import { withTenant } from "@/db";
 
 export const dynamic = "force-dynamic";
 
 const LEVEL_LABEL: Record<string, string> = {
-  zone: "Zones", state: "States", city: "Cities", tenant: "Organizations",
+  zone: "Zones", state: "States", city: "Cities", tenant: "Organizations", employee: "Team",
+};
+const LEVEL_SINGULAR: Record<string, string> = {
+  zone: "Zone", state: "State", city: "City", tenant: "Organization", employee: "Team member",
 };
 
 export default async function Dashboard(props: {
-  searchParams: Promise<{ zone?: string; state?: string; city?: string }>;
+  searchParams: Promise<{ zone?: string; state?: string; city?: string; tenant?: string; tenantName?: string }>;
 }) {
   const user = await requireUser();
   const sp = await props.searchParams;
-  const drill = { zoneId: sp.zone, stateId: sp.state, cityId: sp.city };
+  const drill = { zoneId: sp.zone, stateId: sp.state, cityId: sp.city, tenantId: sp.tenant };
   const isLeadership = user.scope === "global";
 
-  const [ov, dd, funnel, channels, age] = await Promise.all([
+  const [ov, dd, funnel, channels, age, leaders] = await Promise.all([
     overview(user, drill),
     drilldown(user, drill),
     statusFunnel(user, drill),
     channelRanking(user),
     ageing(user),
+    topPerformers(user),
   ]);
 
   const conv = Number(ov.total_quotes) > 0
@@ -35,23 +39,29 @@ export default async function Dashboard(props: {
   if (sp.zone) crumbs.push({ label: sp.zone, href: `/dashboard?zone=${sp.zone}` });
   if (sp.state) crumbs.push({ label: sp.state, href: `/dashboard?zone=${sp.zone}&state=${sp.state}` });
   if (sp.city) crumbs.push({ label: sp.city, href: `/dashboard?zone=${sp.zone}&state=${sp.state}&city=${sp.city}` });
+  if (sp.tenant) crumbs.push({
+    label: sp.tenantName || sp.tenant,
+    href: `/dashboard?zone=${sp.zone}&state=${sp.state}&city=${sp.city}&tenant=${sp.tenant}`,
+  });
 
-  const drillHref = (key: string) => {
+  const drillHref = (key: string, name?: string) => {
     if (dd.level === "zone") return `/dashboard?zone=${key}`;
     if (dd.level === "state") return `/dashboard?zone=${sp.zone}&state=${key}`;
     if (dd.level === "city") return `/dashboard?zone=${sp.zone}&state=${sp.state}&city=${key}`;
+    if (dd.level === "tenant") {
+      return `/dashboard?zone=${sp.zone ?? ""}&state=${sp.state ?? ""}&city=${sp.city ?? ""}&tenant=${key}&tenantName=${encodeURIComponent(name ?? "")}`;
+    }
     return `/quotes`;
   };
 
   // recent activity feed
-  const sql = getSql();
-  const recent = await sql`
+  const recent = await withTenant({ tenantId: user.tenantId, scope: user.scope }, async ({ raw: sql }) => sql`
     select e.type, e.created_at, q.number, q.id as quote_id, t.name as tenant_name
     from quote_events e
     join quotations q on q.id = e.quotation_id
     join tenants t on t.id = e.tenant_id
-    where ${isLeadership ? sql`true` : sql`e.tenant_id = ${user.tenantId}`}
-    order by e.created_at desc limit 8`;
+    where true
+    order by e.created_at desc limit 8`);
 
   return (
     <div>
@@ -90,13 +100,13 @@ export default async function Dashboard(props: {
             <div className="card overflow-hidden">
               <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
                 <h3 className="text-sm font-bold">
-                  {isLeadership ? `Drilldown — ${LEVEL_LABEL[dd.level]}` : "By region"}
+                  {isLeadership ? `Drilldown — ${LEVEL_LABEL[dd.level]}` : "Your team"}
                 </h3>
-                <span className="text-xs text-ink-400">click to drill</span>
+                {isLeadership && dd.level !== "employee" && <span className="text-xs text-ink-400">click to drill</span>}
               </div>
               <table className="table-base">
                 <thead>
-                  <tr><th>{LEVEL_LABEL[dd.level]?.slice(0, -1) ?? "Group"}</th>
+                  <tr><th>{LEVEL_SINGULAR[dd.level] ?? "Group"}</th>
                     <th className="text-right">Quotes</th>
                     <th className="text-right">Value</th>
                     <th className="text-right">Pipeline</th>
@@ -106,8 +116,8 @@ export default async function Dashboard(props: {
                   {dd.rows.map((r) => (
                     <tr key={r.key}>
                       <td>
-                        {isLeadership && dd.level !== "tenant" ? (
-                          <Link href={drillHref(r.key)} className="font-semibold text-brand-600 hover:underline">
+                        {isLeadership && dd.level !== "employee" ? (
+                          <Link href={drillHref(r.key, r.name)} className="font-semibold text-brand-600 hover:underline">
                             {r.name}
                           </Link>
                         ) : (
@@ -146,6 +156,26 @@ export default async function Dashboard(props: {
         </div>
 
         <div className="space-y-6">
+          {isLeadership && leaders.length > 0 && (
+            <div className="card p-5">
+              <h3 className="mb-3 text-sm font-bold">Top performers — PAN-India</h3>
+              <ol className="space-y-2">
+                {leaders.map((p, i) => (
+                  <li key={p.id ?? i} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-100 font-bold text-ink-500">{i + 1}</span>
+                      <span>
+                        <span className="font-semibold text-ink-800">{p.name}</span>
+                        <span className="ml-1.5 text-ink-400">{p.tenant_name}</span>
+                      </span>
+                    </span>
+                    <span className="text-right font-semibold tabular-nums"><Money paise={Number(p.won_value)} /></span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           <div className="card p-5">
             <h3 className="mb-3 text-sm font-bold">Funnel</h3>
             <div className="space-y-2">

@@ -36,6 +36,16 @@ export function HealthBadge({ score, grade }: { score: number; grade: string }) 
   );
 }
 
+export function WinProbabilityBadge({ probability, band }: { probability: number; band: string }) {
+  const cls = band === "high" ? "bg-emerald-100 text-emerald-700"
+    : band === "medium" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-700";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${cls}`}>
+      🎯 {probability}%
+    </span>
+  );
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="card flex flex-col items-center justify-center p-12 text-center">

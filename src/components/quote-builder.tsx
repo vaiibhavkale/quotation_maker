@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useTransition } from "react";
 import { createQuote } from "@/app/actions/quotes";
 
 type Customer = { id: string; name: string; stateId: string | null };
+type Project = { id: string; name: string; customerId: string };
 type Line = {
   description: string; hsnCode: string; unit: string;
   quantity: number; rate: number; discountPct: number; gstRatePct: number;
@@ -20,10 +21,12 @@ const CATALOGUE: Omit<Line, "quantity" | "discountPct">[] = [
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n);
 
-export function QuoteBuilder({ customers, sellerStateId }: {
-  customers: Customer[]; sellerStateId: string | null;
+export function QuoteBuilder({ customers, projects = [], sellerStateId, initialCustomerId, initialProjectId }: {
+  customers: Customer[]; projects?: Project[]; sellerStateId: string | null;
+  initialCustomerId?: string; initialProjectId?: string;
 }) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
+  const [customerId, setCustomerId] = useState(initialCustomerId || customers[0]?.id || "");
+  const [projectId, setProjectId] = useState(initialProjectId || "");
   const [title, setTitle] = useState("");
   const [lines, setLines] = useState<Line[]>([
     { description: "", hsnCode: "", unit: "nos", quantity: 1, rate: 0, discountPct: 0, gstRatePct: 18 },
@@ -75,7 +78,7 @@ export function QuoteBuilder({ customers, sellerStateId }: {
     }
     startTransition(async () => {
       try {
-        await createQuote({ customerId, title, validDays: 15, items: lines });
+        await createQuote({ customerId, projectId: projectId || undefined, title, validDays: 15, items: lines });
       } catch (e) {
         const msg = (e as Error).message ?? "";
         if (msg.includes("NEXT_REDIRECT")) throw e;
@@ -106,6 +109,17 @@ export function QuoteBuilder({ customers, sellerStateId }: {
               <input className="input" value={title} onChange={(e) => setTitle(e.target.value)}
                 placeholder="Rooftop Solar — 25 kW" />
             </div>
+            {projects.length > 0 && (
+              <div className="md:col-span-2">
+                <label className="label">Project (optional)</label>
+                <select className="input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                  <option value="">No project</option>
+                  {projects.filter((p) => p.customerId === customerId).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 

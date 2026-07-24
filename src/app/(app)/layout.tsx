@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut, type SessionUser } from "@/lib/auth";
 import { getSql } from "@/db";
+import { NotificationBell } from "@/components/notification-bell";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: "◧" },
+    ...(isLeadership ? [] : [{ href: "/leads", label: "Leads", icon: "◎" }]),
+    ...(isLeadership ? [] : [{ href: "/projects", label: "Projects", icon: "▣" }]),
     { href: "/quotes", label: "Quotations", icon: "▤" },
+    { href: "/orders", label: "Orders", icon: "▥" },
     ...(isLeadership ? [] : [{ href: "/customers", label: "Customers", icon: "◉" }]),
+    ...(isLeadership ? [] : [{ href: "/team", label: "Team", icon: "◍" }]),
     { href: "/ask", label: "Ask HIQM", icon: "✦" },
+    { href: "/audit", label: "Audit Log", icon: "≣" },
     ...(user.role === "partner_admin" ? [{ href: "/settings/branding", label: "Branding", icon: "◨" }] : []),
   ];
 
@@ -79,7 +85,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <main className="ml-60 flex-1 p-8">{children}</main>
+      <main className="ml-60 flex-1 p-8">
+        <div className="mb-4 flex justify-end"><NotificationBell /></div>
+        {children}
+      </main>
     </div>
   );
 }
